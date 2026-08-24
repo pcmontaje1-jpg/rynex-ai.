@@ -5,40 +5,110 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rynex AI - Code Assistant</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>⚡ Rynex AI</h1>
-            <p>Code Assistant - Powered by GitHub</p>
-        </div>
-        
-        <div class="chat-box" id="chatBox">
-            <div class="message bot-message">
-                👋 Привет! Я Rynex AI. Специализируюсь на коде.
-                <br><br>
-                <b>Что я умею:</b><br>
-                • Писать код на любом языке<br>
-                • Объяснять ошибки<br>
-                • Оптимизировать алгоритмы<br>
-                • Отвечать на вопросы
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" fill="#10a37f"/>
+                        <path d="M8 12l3 3 5-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>Rynex AI</span>
+                </div>
+                <button class="new-chat-btn" onclick="clearChat()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                    Новый чат
+                </button>
             </div>
-        </div>
-        
-        <div class="input-area">
-            <textarea id="userInput" placeholder="Опишите задачу или вставьте код... Например: 'Напиши функцию сортировки на Python'" rows="4"></textarea>
-            <div class="buttons">
-                <select id="modelSelect">
-                    <option value="gpt-3.5-turbo">Fast Mode (GPT-3.5)</option>
-                    <option value="gpt-4">Smart Mode (GPT-4)</option>
-                    <option value="code-llama">Code Mode (CodeLlama)</option>
-                </select>
-                <button onclick="sendMessage()">Отправить ➤</button>
+            
+            <div class="chat-history">
+                <div class="history-item active">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                    </svg>
+                    <span>Текущий чат</span>
+                </div>
             </div>
-        </div>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="avatar">R</div>
+                    <span>Rynex User</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="main-content">
+            <div class="chat-container">
+                <div class="messages" id="chatBox">
+                    <div class="welcome-screen" id="welcomeScreen">
+                        <div class="welcome-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="10" fill="#10a37f"/>
+                                <path d="M8 12l3 3 5-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h1>Чем я могу помочь?</h1>
+                        <div class="suggestion-grid">
+                            <div class="suggestion-card" onclick="quickPrompt('Напиши функцию для сортировки массива на Python')">
+                                <div class="suggestion-icon">🐍</div>
+                                <div class="suggestion-text">
+                                    <h3>Написать код</h3>
+                                    <p>Создай функцию на Python</p>
+                                </div>
+                            </div>
+                            <div class="suggestion-card" onclick="quickPrompt('Объясни как работает этот код:\n\n```python\ndef fibonacci(n):\n    return n if n <= 1 else fibonacci(n-1) + fibonacci(n-2)\n```')">
+                                <div class="suggestion-icon">📖</div>
+                                <div class="suggestion-text">
+                                    <h3>Объяснить код</h3>
+                                    <p>Помоги понять алгоритм</p>
+                                </div>
+                            </div>
+                            <div class="suggestion-card" onclick="quickPrompt('Найди ошибку в этом коде JavaScript')">
+                                <div class="suggestion-icon">🐛</div><div class="suggestion-text">
+                                    <h3>Найти ошибку</h3>
+                                    <p>Отладка и исправление</p>
+                                </div>
+                            </div>
+                            <div class="suggestion-card" onclick="quickPrompt('Оптимизируй этот SQL запрос для больших данных')">
+                                <div class="suggestion-icon">⚡</div>
+                                <div class="suggestion-text">
+                                    <h3>Оптимизировать</h3>
+                                    <p>Улучшить производительность</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="userInput" 
+                            placeholder="Отправьте сообщение Rynex AI..." 
+                            rows="1"
+                            onkeydown="handleKeyDown(event)"
+                        ></textarea>
+                        <button class="send-button" onclick="sendMessage()" id="sendBtn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="input-hint">Rynex AI может ошибаться. Проверяйте важную информацию.</p>
+                </div>
+            </div>
+        </main>
     </div>
     <script src="script.js"></script>
 </body>
