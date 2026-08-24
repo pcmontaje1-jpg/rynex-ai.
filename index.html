@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rynex AI - Code Assistant</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Rynex AI</h1>
+            <p>Code Assistant - Powered by GitHub</p>
+        </div>
+        
+        <div class="chat-box" id="chatBox">
+            <div class="message bot-message">
+                👋 Привет! Я Rynex AI. Специализируюсь на коде.
+                <br><br>
+                <b>Что я умею:</b><br>
+                • Писать код на любом языке<br>
+                • Объяснять ошибки<br>
+                • Оптимизировать алгоритмы<br>
+                • Отвечать на вопросы
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <textarea id="userInput" placeholder="Опишите задачу или вставьте код... Например: 'Напиши функцию сортировки на Python'" rows="4"></textarea>
+            <div class="buttons">
+                <select id="modelSelect">
+                    <option value="gpt-3.5-turbo">Fast Mode (GPT-3.5)</option>
+                    <option value="gpt-4">Smart Mode (GPT-4)</option>
+                    <option value="code-llama">Code Mode (CodeLlama)</option>
+                </select>
+                <button onclick="sendMessage()">Отправить ➤</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
