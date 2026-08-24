@@ -1,73 +1,70 @@
-// Конфигурация API (бесплатные варианты)
-const config = {
-    // Вариант 1: Hugging Face (бесплатно, без ограничений)
-    huggingface: {
-        url: 'https://api-inference.huggingface.co/models/',
-        token: 'hf_ВАШ_ТОКЕН', // Получите на huggingface.co
-        models: {
-            'code-llama': 'codellama/CodeLlama-7b-Instruct-hf',
-            'default': 'mistralai/Mistral-7B-Instruct-v0.2'
-        }
-    },
-    
-    // Вариант 2: Cloudflare Workers AI (бесплатно)
-    cloudflare: {
-        url: 'https://api.cloudflare.com/client/v4/accounts/ВАШ_ACCOUNT_ID/ai/run/',
-        token: 'ВАШ_CLOUDFLARE_TOKEN'
-    }
-};
+const HF_TOKEN = 'hf_ВАШ_ТОКЕН'; // ← ВСТАВЬ СВОЙ ТОКЕН СЮДА
 
 let conversationHistory = [];
+let isProcessing = false;
 
+// Функция отправки сообщения
 async function sendMessage() {
     const userInput = document.getElementById('userInput');
     const message = userInput.value.trim();
-    const modelSelect = document.getElementById('modelSelect');
     
-    if (!message) return;
+    if (!message || isProcessing) return;
+    
+    isProcessing = true;
+    
+    // Скрываем welcome screen
+    const welcomeScreen = document.getElementById('welcomeScreen');
+    if (welcomeScreen) {
+        welcomeScreen.style.display = 'none';
+    }
     
     // Добавляем сообщение пользователя
-    addMessage(message, 'user-message');
-    userInput.value = '';
+    addMessage(message, 'user');
     
-    // Показываем загрузку
-    const loadingMsg = addMessage('⚡ Генерация...', 'bot-message loading');
+    // Очищаем input
+    userInput.value = '';
+    userInput.style.height = 'auto';
+    
+    // Показываем индикатор печати
+    const typingIndicator = showTypingIndicator();
     
     try {
-        // Выбираем бесплатный API
-        const response = await callHuggingFaceAPI(message, modelSelect.value);
+        // Вызываем API
+        const response = await callHuggingFaceAPI(message);
         
-        loadingMsg.remove();
-        addMessage(response, 'bot-message');
+        // Убираем индикатор
+        typingIndicator.remove();
         
-        // Подсветка кода
-        document.querySelectorAll('pre code').forEach(block => {
-            hljs.highlightElement(block);
-        });
+        // Добавляем ответ
+        addMessage(response, 'assistant');
         
     } catch (error) {
-        loadingMsg.remove();
-        addMessage('❌ Ошибка: ' + error.message, 'bot-message');
+        typingIndicator.remove();
+        addMessage('❌ Ошибка: ' + error.message + '\n\nПроверьте:\n1. Вставлен ли API ключ в script.js\n2. Есть ли интернет соединение', 'assistant');
     }
+    
+    isProcessing = false;
 }
 
-async function callHuggingFaceAPI(message, modelType) {
-    const model = config.huggingface.models[modelType] || config.huggingface.models.default;
+// Вызов Hugging Face API
+async function callHuggingFaceAPI(message) {
+    const API_URL = 'https://api-inference.huggingface.co/models/codellama/CodeLlama-7b-Instruct-hf';
     
-    // Специальный промпт для кода
-    const codePrompt = `You are Rynex AI, a coding assistant. 
-    Task: ${message}
-    Provide code examples with explanations.
-    Format code in markdown blocks.`;
+    const prompt = `You are Rynex AI, a helpful coding assistant. 
+    Provide clear, detailed answers with code examples when relevant.
     
-    const response = await fetch(config.huggingface.url + model, {
+    User: ${message}
+    
+    Assistant:`;
+    
+    const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
-            'Authorization': Bearer ${config.huggingface.token},
+            'Authorization': Bearer ${HF_TOKEN},
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            inputs: codePrompt,
+            inputs: prompt,
             parameters: {
                 max_new_tokens: 1000,
                 temperature: 0.7,
@@ -78,68 +75,121 @@ async function callHuggingFaceAPI(message, modelType) {
     });
     
     if (!response.ok) {
-        throw new Error('API error: ' + response.status);
+        if (response.status === 401) {
+            throw new Error('Неверный API ключ');
+        } else if (response.status === 503) {
+            throw new Error('Модель загружается, попробуйте через минуту');
+        } else {
+            throw new Error('HTTP ' + response.status);
+        }
     }
     
     const data = await response.json();
-    return data[0]?.generated_text || 'Нет ответа';
-}
-
-// Альтернатива: Cloudflare Workers AI
-async function callCloudflareAPI(message) {
-    const response = await fetch(config.cloudflare.url + '@cf/meta/llama-3-8b-instruct', {
-        method: 'POST',
-        headers: {
-            'Authorization': Bearer ${config.cloudflare.token},
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            messages: [
-                { role: 'system', content: 'You are a coding assistant' },
-                { role: 'user', content: message }
-            ]
-        })
-    });
+    let text = data[0]?.generated_text || 'Нет ответа';
     
-    const data = await response.json();
-    return data.result.response;
+    // Убираем промпт из ответа
+    if (text.includes('Assistant:')) {
+        text = text.split('Assistant:')[1].trim();
+    }
+    
+    return text;
 }
 
-function addMessage(text, className) {
+// Добавление сообщения в чат
+function addMessage(text, role) {
     const chatBox = document.getElementById('chatBox');
     const messageDiv = document.createElement('div');
-    messageDiv.className = message ${className};
+    messageDiv.className = message ${role};
     
-    // Поддержка Markdown
-    if (className === 'bot-message' && !className.includes('loading')) {
-        messageDiv.innerHTML = marked.parse(text);
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    
+    // Аватар
+    const avatar = document.createElement('div');
+    avatar.className = avatar ${role}-avatar;
+    if (role === 'user') {
+        avatar.textContent = 'R';
     } else {
-        messageDiv.textContent = text;
+        avatar.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#10a37f"/><path d="M8 12l3 3 5-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     }
     
-    chatBox.appendChild(messageDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    return messageDiv;
+    // Текст сообщения
+    const textDiv = document.createElement('div');
+    textDiv.className = 'message-text';
+    
+    if (role === 'assistant') {
+        // Поддержка markdown и подсветка кода
+        textDiv.innerHTML = marked.parse(text);
+        
+        // Подсветка кода
+        textDiv.querySelectorAll('pre code').forEach(block => {
+            hljs.highlightElement(block);
+        });
+    } else {
+        textDiv.textContent = text;
+    }
+    
+    contentDiv.appendChild(avatar);
+    contentDiv.appendChild(textDiv);
+    messageDiv.appendChild(contentDiv);
+    
+    chatBox.appendChild(messageDiv);chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// Отправка по Ctrl+Enter
-document.getElementById('userInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && e.ctrlKey) {
-        e.preventDefault();
+// Индикатор печати
+function showTypingIndicator() {
+    const chatBox = document.getElementById('chatBox');
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message assistant';
+    typingDiv.innerHTML = `
+        <div class="message-content">
+            <div class="avatar ai-avatar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" fill="#10a37f"/>
+                    <path d="M8 12l3 3 5-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="typing-indicator">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+    `;
+    chatBox.appendChild(typingDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return typingDiv;
+}
+
+// Быстрые подсказки
+function quickPrompt(text) {
+    const input = document.getElementById('userInput');
+    input.value = text;
+    input.focus();
+    sendMessage();
+}
+
+// Очистка чата
+function clearChat() {
+    const chatBox = document.getElementById('chatBox');
+    chatBox.innerHTML = '';
+    location.reload();
+}
+
+// Обработка клавиш
+function handleKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
         sendMessage();
     }
-});
-
-// Быстрые шаблоны
-function quickTemplate(type) {
-    const templates = {'python': 'Напиши Python функцию для ',
-        'js': 'Создай JavaScript код для ',
-        'debug': 'Найди ошибку в этом коде:\n',
-        'explain': 'Объясни как работает этот код:\n',
-        'optimize': 'Оптимизируй этот код:\n'
-    };
     
-    const input = document.getElementById('userInput');
-    input.value = templates[type];
-    input.focus();
+    // Автоувеличение высоты textarea
+    const textarea = event.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
 }
+
+// Автофокус на input при загрузке
+window.addEventListener('load', () => {
+    document.getElementById('userInput').focus();
+});
