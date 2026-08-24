@@ -1,127 +1,78 @@
-const HF_TOKEN = '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'; // ← ВСТАВЬ СВОЙ ТОКЕН СЮДА
+const GROQ_TOKEN = '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'; // ← ВСТАВЬ СВОЙ КЛЮЧ ОТ GROQ
 
-let conversationHistory = [];
-let isProcessing = false;
+const chat = document.getElementById('chat');
+const input = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
 
-// Функция отправки сообщения
+sendBtn.addEventListener('click', sendMessage);
+input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendMessage();
+});
+
 async function sendMessage() {
-    const userInput = document.getElementById('userInput');
-    const message = userInput.value.trim();
+    const text = input.value.trim();
+    if (!text) return;
     
-    if (!message || isProcessing) return;
+    addMessage(text, 'user');
+    input.value = '';
     
-    isProcessing = true;
-    
-    // Скрываем welcome screen
-    const welcomeScreen = document.getElementById('welcomeScreen');
-    if (welcomeScreen) {
-        welcomeScreen.style.display = 'none';
-    }
-    
-    // Добавляем сообщение пользователя
-    addMessage(message, 'user');
-    
-    // Очищаем input
-    userInput.value = '';
-    userInput.style.height = 'auto';
-    
-    // Показываем индикатор печати
-    const typingIndicator = showTypingIndicator();
+    // Показываем что бот "печатает"
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'message bot';
+    loadingDiv.innerHTML = '<div class="text">...</div>';
+    chat.appendChild(loadingDiv);
     
     try {
-        // Вызываем API
-        const response = await callHuggingFaceAPI(message);
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': Bearer ${GROQ_TOKEN},
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'Ты Rynex AI — ассистент для программирования. Отвечай кратко и по делу. Если нужно, показывай код.'
+                    },
+                    {
+                        role: 'user',
+                        content: text
+                    }
+                ],
+                temperature: 0.7,
+                max_tokens: 2000
+            })
+        });
         
-        // Убираем индикатор
-        typingIndicator.remove();
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || 'Ошибка ' + response.status);
+        }
         
-        // Добавляем ответ
-        addMessage(response, 'assistant');
+        const data = await response.json();
+        const answer = data.choices[0].message.content;
+        
+        // Убираем "..." и добавляем ответ
+        loadingDiv.remove();
+        addMessage(answer, 'bot');
         
     } catch (error) {
-        typingIndicator.remove();
-        addMessage('❌ Ошибка: ' + error.message + '\n\nПроверьте:\n1. Вставлен ли API ключ в script.js\n2. Есть ли интернет соединение', 'assistant');
+        loadingDiv.remove();
+        addMessage('Ошибка: ' + error.message, 'bot');
     }
-    
-    isProcessing = false;
 }
 
-// Вызов Hugging Face API
-async function callHuggingFaceAPI(message) {
-    const API_URL = 'https://api-inference.huggingface.co/models/codellama/CodeLlama-7b-Instruct-hf';
-    
-    const prompt = `You are Rynex AI, a helpful coding assistant. 
-    Provide clear, detailed answers with code examples when relevant.
-    
-    User: ${message}
-    
-    Assistant:`;
-    
-    const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-            'Authorization': Bearer ${HF_TOKEN},
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            inputs: prompt,
-            parameters: {
-                max_new_tokens: 1000,
-                temperature: 0.7,
-                top_p: 0.95,
-                do_sample: true
-            }
-        })
-    });
-    
-    if (!response.ok) {
-        if (response.status === 401) {
-            throw new Error('Неверный API ключ');
-        } else if (response.status === 503) {
-            throw new Error('Модель загружается, попробуйте через минуту');
-        } else {
-            throw new Error('HTTP ' + response.status);
-        }
-    }
-    
-    const data = await response.json();
-    let text = data[0]?.generated_text || 'Нет ответа';
-    
-    // Убираем промпт из ответа
-    if (text.includes('Assistant:')) {
-        text = text.split('Assistant:')[1].trim();
-    }
-    
-    return text;
-}
-
-// Добавление сообщения в чат
 function addMessage(text, role) {
-    const chatBox = document.getElementById('chatBox');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = message ${role};
+    const div = document.createElement('div');
+    div.className = message ${role};
     
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-    
-    // Аватар
-    const avatar = document.createElement('div');
-    avatar.className = avatar ${role}-avatar;
-    if (role === 'user') {
-        avatar.textContent = 'R';
-    } else {
-        avatar.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#10a37f"/><path d="M8 12l3 3 5-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    }
-    
-    // Текст сообщения
     const textDiv = document.createElement('div');
-    textDiv.className = 'message-text';
+    textDiv.className = 'text';
     
-    if (role === 'assistant') {
-        // Поддержка markdown и подсветка кода
+    if (role === 'bot') {
         textDiv.innerHTML = marked.parse(text);
-        
-        // Подсветка кода
         textDiv.querySelectorAll('pre code').forEach(block => {
             hljs.highlightElement(block);
         });
@@ -129,67 +80,7 @@ function addMessage(text, role) {
         textDiv.textContent = text;
     }
     
-    contentDiv.appendChild(avatar);
-    contentDiv.appendChild(textDiv);
-    messageDiv.appendChild(contentDiv);
-    
-    chatBox.appendChild(messageDiv);chatBox.scrollTop = chatBox.scrollHeight;
+    div.appendChild(textDiv);
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
 }
-
-// Индикатор печати
-function showTypingIndicator() {
-    const chatBox = document.getElementById('chatBox');
-    const typingDiv = document.createElement('div');
-    typingDiv.className = 'message assistant';
-    typingDiv.innerHTML = `
-        <div class="message-content">
-            <div class="avatar ai-avatar">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" fill="#10a37f"/>
-                    <path d="M8 12l3 3 5-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>
-            <div class="typing-indicator">
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-            </div>
-        </div>
-    `;
-    chatBox.appendChild(typingDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    return typingDiv;
-}
-
-// Быстрые подсказки
-function quickPrompt(text) {
-    const input = document.getElementById('userInput');
-    input.value = text;
-    input.focus();
-    sendMessage();
-}
-
-// Очистка чата
-function clearChat() {
-    const chatBox = document.getElementById('chatBox');
-    chatBox.innerHTML = '';
-    location.reload();
-}
-
-// Обработка клавиш
-function handleKeyDown(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
-    }
-    
-    // Автоувеличение высоты textarea
-    const textarea = event.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
-}
-
-// Автофокус на input при загрузке
-window.addEventListener('load', () => {
-    document.getElementById('userInput').focus();
-});
