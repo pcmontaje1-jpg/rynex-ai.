@@ -1,4 +1,5 @@
-const HF_TOKEN =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
+const HF_TOKEN = 'hf_ВАШ_ТОКЕН'; // ← ВСТАВЬ СВОЙ ТОКЕН СЮДА
+
 let conversationHistory = [];
 let isProcessing = false;
 
